@@ -666,23 +666,28 @@ public class DNSFilterService extends VpnService  {
 	}
 
 
-// REPLACE your old onStartCommand with THIS ENTIRE METHOD
+// REPLACE your onStartCommand with THIS ENTIRE METHOD
     @Override
-	public int onStartCommand(Intent intent, int flags, int startId) {
+    public int onStartCommand(Intent intent, int flags, int startId) {
 
         // --- THIS IS OUR NEW "STOP" LOGIC ---
         if (intent != null && intent.getAction() != null && intent.getAction().equals(ACTION_STOP)) {
-            // We just need to stop ourself.
-            // This will trigger the existing onDestroy() method,
-            // which already has all the correct cleanup logic.
-            stopForeground(true);
-            stopSelf();
-            return START_NOT_STICKY; // <-- The most important part!
+            
+            // --- THIS IS THE NEW LINE ---
+            // Call the service's *own* cleanup method (the one at line 1114)
+            stop(); 
+            // --- END OF NEW LINE ---
+            
+            // Now, stop the service itself
+            stopForeground(true); // This removes the notification
+            stopSelf();           // This tells Android to destroy the service
+            return START_NOT_STICKY; // <-- "Do NOT restart me"
         }
         // --- END OF NEW "STOP" LOGIC ---
 
 
         // --- ALL YOUR ORIGINAL "START" LOGIC IS BELOW ---
+        // (It is unchanged)
 
         AndroidEnvironment.initEnvironment(this);
         INSTANCE = this;
@@ -801,7 +806,6 @@ public class DNSFilterService extends VpnService  {
 
         return START_STICKY;
     }
-
 
 	public void pause_resume() throws IOException {
 		DNSFilterManager.getInstance().switchBlockingActive();
@@ -1084,4 +1088,5 @@ public class DNSFilterService extends VpnService  {
 
 
 }
+
 
