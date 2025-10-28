@@ -83,6 +83,7 @@
 
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+        </receiver>
         <receiver
             android:name=".TaskerReceiver"
             android:exported="true">
@@ -90,7 +91,6 @@
                 <action android:name="dnsfilter.android.action.START_FROM_TASKER" />
                 <action android:name="dnsfilter.android.action.STOP_FROM_TASKER" />
             </intent-filter>
-        </receiver>
         </receiver>
     </application>
 
