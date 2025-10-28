@@ -3,34 +3,40 @@ package dnsfilter.android;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build; // <-- IMPORT THIS
+import android.os.Build;
+import android.util.Log; // <-- IMPORT THIS
 
 public class TaskerReceiver extends BroadcastReceiver {
+
+    // Define a tag for our logs
+    private static final String TAG = "TaskerReceiver_DEBUG";
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || intent.getAction() == null) {
+            Log.d(TAG, "Receiver called with null intent or action.");
             return;
         }
 
         String action = intent.getAction();
+        Log.d(TAG, "onReceive called with action: " + action);
 
         if ("dnsfilter.android.action.START_FROM_TASKER".equals(action)) {
+            Log.d(TAG, "Executing START action...");
             Intent startIntent = new Intent(context, DNSFilterService.class);
             
-            // --------------------------------------------------
-            // THIS IS THE CORRECTED START CODE
-            // --------------------------------------------------
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(startIntent);
             } else {
                 context.startService(startIntent);
             }
-            // --------------------------------------------------
+            Log.d(TAG, "startForegroundService() called.");
 
         } else if ("dnsfilter.android.action.STOP_FROM_TASKER".equals(action)) {
-            // This code was already correct
+            Log.d(TAG, "Executing STOP action...");
             Intent stopIntent = new Intent(context, DNSFilterService.class);
             context.stopService(stopIntent);
+            Log.d(TAG, "stopService() called.");
         }
     }
 }
