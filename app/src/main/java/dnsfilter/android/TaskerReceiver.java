@@ -35,8 +35,17 @@ public class TaskerReceiver extends BroadcastReceiver {
         } else if ("dnsfilter.android.action.STOP_FROM_TASKER".equals(action)) {
             Log.d(TAG, "Executing STOP action...");
             Intent stopIntent = new Intent(context, DNSFilterService.class);
-            context.stopService(stopIntent);
-            Log.d(TAG, "stopService() called.");
+
+            // This tells the service to run its new "stop" logic
+            stopIntent.setAction(DNSFilterService.ACTION_STOP);
+
+            // We use startForegroundService to deliver the "stop" intent
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(stopIntent);
+            } else {
+                context.startService(stopIntent);
+            }
+            Log.d(TAG, "Sent ACTION_STOP to service.");
         }
     }
 }
