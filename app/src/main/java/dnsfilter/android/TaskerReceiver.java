@@ -3,6 +3,7 @@ package dnsfilter.android;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build; // <-- IMPORT THIS
 
 public class TaskerReceiver extends BroadcastReceiver {
     @Override
@@ -14,13 +15,22 @@ public class TaskerReceiver extends BroadcastReceiver {
         String action = intent.getAction();
 
         if ("dnsfilter.android.action.START_FROM_TASKER".equals(action)) {
-            // This is the code to start the service from *within* the app
             Intent startIntent = new Intent(context, DNSFilterService.class);
-            context.startService(startIntent);
+            
+            // --------------------------------------------------
+            // THIS IS THE CORRECTED START CODE
+            // --------------------------------------------------
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(startIntent);
+            } else {
+                context.startService(startIntent);
+            }
+            // --------------------------------------------------
+
         } else if ("dnsfilter.android.action.STOP_FROM_TASKER".equals(action)) {
-            // This is the code to stop the service from *within* the app
+            // This code was already correct
             Intent stopIntent = new Intent(context, DNSFilterService.class);
-            context.stopService(stopIntent); // <-- This is the correct way to stop it
+            context.stopService(stopIntent);
         }
     }
 }
