@@ -20,8 +20,7 @@ public class TaskerReceiver extends BroadcastReceiver {
         } else if ("dnsfilter.android.action.STOP_FROM_TASKER".equals(action)) {
             // This is the code to stop the service from *within* the app
             Intent stopIntent = new Intent(context, DNSFilterService.class);
-            stopIntent.setAction(DNSFilterService.ACTION_STOP); // Use the app's existing stop action
-            context.startService(stopIntent);
+            context.stopService(stopIntent); // <-- This is the correct way to stop it
         }
     }
 }
