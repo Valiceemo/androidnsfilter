@@ -675,7 +675,7 @@ public class DNSFilterService extends VpnService  {
             
             // --- THIS IS THE NEW LINE ---
             // Call the service's *own* cleanup method (the one at line 1114)
-            stop(); 
+            stop(true); 
             // --- END OF NEW LINE ---
             
             // Now, stop the service itself
@@ -1088,5 +1088,6 @@ public class DNSFilterService extends VpnService  {
 
 
 }
+
 
 
