@@ -66,7 +66,7 @@ import util.conpool.TLSSocketFactory;
 
 public class DNSFilterManager extends ConfigurationAccess  {
 
-	public static final String VERSION = "1505900";
+	public static final String VERSION = "1505901-dev1";
 
 	private static DNSFilterManager INSTANCE = new DNSFilterManager();
 
@@ -908,8 +908,8 @@ public class DNSFilterManager extends ConfigurationAccess  {
 					if (pos == buf.length)
 						throw new IOException("Buffer overflow!");
 
-					if ( r < 32 && r < 9 && r > 13)
-						throw new IOException ("Non printable character: "+r+"("+((char)r)+")");
+					if ( r < 32 && r != 9 && r != 13 && r!=10)
+						throw new IOException ("Non printable character: "+r);
 
 					buf[pos] = (byte) (r);
 					pos++;
