@@ -883,39 +883,37 @@ public class DNSFilterManager extends ConfigurationAccess  {
 
 		while (r != -1 && r!=10) {
 
-			while (r != -1 && r!=10) {
+			r = in.read();
 
-				r = in.read();
-
-				if (r == 9 || r == 32 ) {
-					if (token == 1) {
-						r = Utils.skipLine(in);
-						return new int[]{wildcard, pos};
-					} else {
-						r = Utils.skipWhitespace(in, r);
-						if (r!= 10 && r != -1) { //format IP <whitespace> host => ship IP part
-							pos = 0;
-							token = 1;
-							wildcard = 0;
-						} else return new int[]{wildcard, pos}; //format host <whitespaces> => return host
-					}
-				}
-
-				if (r == 42) //wildcard
-					wildcard =1;
-
-				if (r != -1) {
-					if (pos == buf.length)
-						throw new IOException("Buffer overflow!");
-
-					if ( r < 32 && r != 9 && r != 13 && r!=10)
-						throw new IOException ("Non printable character: "+r);
-
-					buf[pos] = (byte) (r);
-					pos++;
+			if (r == 9 || r == 32 ) {
+				if (token == 1) {
+					r = Utils.skipLine(in);
+					return new int[]{wildcard, pos};
+				} else {
+					r = Utils.skipWhitespace(in, r);
+					if (r!= 10 && r != -1) { //format IP <whitespace> host => ship IP part
+						pos = 0;
+						token = 1;
+						wildcard = 0;
+					} else return new int[]{wildcard, pos}; //format host <whitespaces> => return host
 				}
 			}
+
+			if (r == 42) //wildcard
+				wildcard =1;
+
+			if (r != -1) {
+				if (pos == buf.length)
+					throw new IOException("Buffer overflow!");
+
+				if ( r < 32 && r != 9 && r != 13 && r!=10)
+					throw new IOException ("Non printable character: "+r);
+
+				buf[pos] = (byte) (r);
+				pos++;
+			}
 		}
+
 		if (r!= -1)
 			pos = pos-1; //skip linefeed
 		if (buf[pos] == 13)
