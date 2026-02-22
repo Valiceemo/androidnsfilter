@@ -1154,7 +1154,7 @@ public class DNSFilterManager extends ConfigurationAccess  {
 			if (!entry.equals("") && !entry.startsWith("#")) {
 				if (entry.startsWith(">"))
 					applyCustomIpMapping(entry.substring(1).trim());
-				if (entry.startsWith("!"))
+				else if (entry.startsWith("!"))
 					hostFilter.addOverrule(entry.substring(1).trim(), false);
 				else
 					hostFilter.addOverrule(entry, true);
