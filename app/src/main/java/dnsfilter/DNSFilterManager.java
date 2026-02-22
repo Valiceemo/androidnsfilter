@@ -628,7 +628,6 @@ public class DNSFilterManager extends ConfigurationAccess  {
 	private void restoreZipEntry (ZipEntry entry, ZipInputStream in) throws IOException {
 		Logger.getLogger().logLine("Restoring: "+entry.getName());
 		FileOutputStream out = new FileOutputStream(getPath()+entry.getName());
-		byte[] buf = new byte[1024];
 		Utils.copyFully(in, out, false);
 		out.flush();
 		out.close();
