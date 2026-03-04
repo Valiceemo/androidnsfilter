@@ -84,6 +84,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
+        <receiver 
+            android:name=".TaskerReceiver" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dnsfilter.android.intent.START" />
+                <action android:name="dnsfilter.android.intent.STOP" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
