@@ -87,7 +87,7 @@
         <activity
             android:name=".TaskerActivity"
             android:exported="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:theme="@style/Theme.TaskerInvisible"
             android:excludeFromRecents="true"
             android:taskAffinity="">
             <intent-filter>
@@ -96,6 +96,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
 
     </application>
 
