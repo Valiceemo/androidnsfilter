@@ -14,7 +14,8 @@ public class TaskerActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Do nothing here, wait for onResume so the app is fully in the foreground
+        // Instantly kill the enter animation so the window doesn't slide or fade in
+        overridePendingTransition(0, 0);
     }
 
     @Override
@@ -27,7 +28,6 @@ public class TaskerActivity extends Activity {
             Intent serviceIntent = new Intent(this, DNSFilterService.class);
             
             try {
-                // Double check that Android hasn't revoked our VPN permission while idle
                 Intent vpnPrepare = VpnService.prepare(this);
                 if (vpnPrepare != null) {
                     Log.e("TaskerActivity", "VPN Permission missing or revoked!");
@@ -52,13 +52,14 @@ public class TaskerActivity extends Activity {
             }
         }
         
-        // Delay the finish by half a second. 
-        // This keeps the app in the foreground just long enough for the VPN to establish!
+        // Lowered the delay to 200ms and added the exit animation override
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
                 finish();
+                // Instantly kill the exit animation so it doesn't fade out
+                overridePendingTransition(0, 0);
             }
-        }, 500); 
+        }, 200); 
     }
 }
