@@ -675,7 +675,15 @@ public class DNSFilterService extends VpnService  {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-
+		if (intent != null && "dnsfilter.android.intent.ACTION_SHUTDOWN".equals(intent.getAction())) {
+            // Call the developer's native internal stop method to close sockets and threads
+            stop(true); 
+            
+            // Tell Android the VPN is officially done
+            stopForeground(true);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
 		AndroidEnvironment.initEnvironment(this);
 
 		SERVICE = intent;
@@ -1084,3 +1092,4 @@ public class DNSFilterService extends VpnService  {
 
 
 }
+
