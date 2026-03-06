@@ -22,11 +22,14 @@
 package dnsfilter.android;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.StrictMode;
+import android.app.job.JobScheduler;
+import android.app.job.JobInfo;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -34,24 +37,51 @@ import java.io.InputStream;
 import java.util.Properties;
 
 import util.ExecutionEnvironment;
+import util.Logger;
 
 public class BootUpReceiver extends BroadcastReceiver {
 
 	@Override
 	public void onReceive(Context context, Intent intent) {
+
+		if (DNSFilterService.SERVICE != null){
+			Logger.getLogger().logLine("Service is already running! Exit start on boot execution!");
+			return;
+		}
+
 		AndroidEnvironment.initEnvironment(context);
 		Properties config = getConfig();
 		if (config != null && Boolean.parseBoolean(config.getProperty("AUTOSTART", "false"))) {
 
-			if (Build.VERSION.SDK_INT >= 28) {
+			boolean proxyOnAndroid = Boolean.parseBoolean(config.getProperty("dnsProxyOnAndroid", "false"));
+			boolean vpnAndProxy = Boolean.parseBoolean(config.getProperty("vpnInAdditionToProxyMode", "false"));
+
+			if (Build.VERSION.SDK_INT >= 28 && Build.VERSION.SDK_INT < 31 ) {
 				Intent i = new Intent(context, DNSFilterService.class);
-				boolean proxyOnAndroid = Boolean.parseBoolean(config.getProperty("dnsProxyOnAndroid", "false"));
-				boolean vpnAndProxy = Boolean.parseBoolean(config.getProperty("vpnInAdditionToProxyMode", "false"));
+
 				if (!proxyOnAndroid || vpnAndProxy)
 					VpnService.prepare(context);
+
 				StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder().build());
 				context.startForegroundService(i);
-			} else {
+
+			} else if (Build.VERSION.SDK_INT >= 31) {
+
+				if (!proxyOnAndroid || vpnAndProxy)
+					VpnService.prepare(context);
+
+				JobScheduler scheduler = (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+
+				JobInfo job = new JobInfo.Builder(1,
+						new ComponentName(context, StartServiceJobService.class))
+						.setOverrideDeadline(0)   // run immediately when system is ready
+						.setBackoffCriteria(10_000, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
+						.setPersisted(false)
+						.build();
+
+				scheduler.schedule(job);
+
+			} else { //SDK <28 start directly the app activity
 				DNSProxyActivity.BOOT_START = true;
 				Intent i = new Intent(context, DNSProxyActivity.class);
 				i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

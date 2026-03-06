@@ -66,7 +66,7 @@ import util.conpool.TLSSocketFactory;
 
 public class DNSFilterManager extends ConfigurationAccess  {
 
-	public static final String VERSION = "1505900";
+	public static final String VERSION = "1505901-dev1";
 
 	private static DNSFilterManager INSTANCE = new DNSFilterManager();
 
@@ -628,7 +628,6 @@ public class DNSFilterManager extends ConfigurationAccess  {
 	private void restoreZipEntry (ZipEntry entry, ZipInputStream in) throws IOException {
 		Logger.getLogger().logLine("Restoring: "+entry.getName());
 		FileOutputStream out = new FileOutputStream(getPath()+entry.getName());
-		byte[] buf = new byte[1024];
 		Utils.copyFully(in, out, false);
 		out.flush();
 		out.close();
@@ -883,39 +882,37 @@ public class DNSFilterManager extends ConfigurationAccess  {
 
 		while (r != -1 && r!=10) {
 
-			while (r != -1 && r!=10) {
+			r = in.read();
 
-				r = in.read();
-
-				if (r == 9 || r == 32 ) {
-					if (token == 1) {
-						r = Utils.skipLine(in);
-						return new int[]{wildcard, pos};
-					} else {
-						r = Utils.skipWhitespace(in, r);
-						if (r!= 10 && r != -1) { //format IP <whitespace> host => ship IP part
-							pos = 0;
-							token = 1;
-							wildcard = 0;
-						} else return new int[]{wildcard, pos}; //format host <whitespaces> => return host
-					}
-				}
-
-				if (r == 42) //wildcard
-					wildcard =1;
-
-				if (r != -1) {
-					if (pos == buf.length)
-						throw new IOException("Buffer overflow!");
-
-					if ( r < 32 && r < 9 && r > 13)
-						throw new IOException ("Non printable character: "+r+"("+((char)r)+")");
-
-					buf[pos] = (byte) (r);
-					pos++;
+			if (r == 9 || r == 32 ) {
+				if (token == 1) {
+					r = Utils.skipLine(in);
+					return new int[]{wildcard, pos};
+				} else {
+					r = Utils.skipWhitespace(in, r);
+					if (r!= 10 && r != -1) { //format IP <whitespace> host => ship IP part
+						pos = 0;
+						token = 1;
+						wildcard = 0;
+					} else return new int[]{wildcard, pos}; //format host <whitespaces> => return host
 				}
 			}
+
+			if (r == 42) //wildcard
+				wildcard =1;
+
+			if (r != -1) {
+				if (pos == buf.length)
+					throw new IOException("Buffer overflow!");
+
+				if ( r < 32 && r != 9 && r != 13 && r!=10)
+					throw new IOException ("Non printable character: "+r);
+
+				buf[pos] = (byte) (r);
+				pos++;
+			}
 		}
+
 		if (r!= -1)
 			pos = pos-1; //skip linefeed
 		if (buf[pos] == 13)
@@ -1156,7 +1153,7 @@ public class DNSFilterManager extends ConfigurationAccess  {
 			if (!entry.equals("") && !entry.startsWith("#")) {
 				if (entry.startsWith(">"))
 					applyCustomIpMapping(entry.substring(1).trim());
-				if (entry.startsWith("!"))
+				else if (entry.startsWith("!"))
 					hostFilter.addOverrule(entry.substring(1).trim(), false);
 				else
 					hostFilter.addOverrule(entry, true);
