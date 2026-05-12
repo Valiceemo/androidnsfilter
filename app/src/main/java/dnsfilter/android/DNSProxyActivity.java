@@ -26,6 +26,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -61,6 +62,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -68,6 +70,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TableLayout;
 import android.widget.TextView;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -348,6 +352,23 @@ public class DNSProxyActivity extends Activity
 				finish();
 				System.exit(0);
 			}
+
+			if (Build.VERSION.SDK_INT >= 36) { //<36 is handled in callback onBackPressed() below!
+				OnBackInvokedCallback callback = () -> {
+					if (advancedConfigCheck.isChecked()) {
+						advancedConfigCheck.setChecked(false);
+						persistConfig(); //ensure eventually changed config gets stored
+						handleAdvancedConfig(null); // reset UI view
+					}
+					else finish();
+				};
+
+				getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+						OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+						callback
+				);
+			}
+
 			AndroidEnvironment.initEnvironment(this);
 
 			DISPLAY_WIDTH = ((WindowManager) getSystemService(WINDOW_SERVICE)).getDefaultDisplay().getWidth();
@@ -680,6 +701,19 @@ public class DNSProxyActivity extends Activity
 		}
 		else Logger.getLogger().message("NOTIFICATION PERMISSION IS REQUIRED!");
 	}
+
+	@Override
+	public void onBackPressed() {
+		if (Build.VERSION.SDK_INT < 36) {
+			if (advancedConfigCheck.isChecked()) {
+				advancedConfigCheck.setChecked(false);
+				persistConfig(); //ensure eventually changed config gets stored
+				handleAdvancedConfig(null); // reset UI view
+			}
+			else super.onBackPressed();
+		}
+	}
+
 
 	@Override
 	public void onDestroy() {
@@ -1447,6 +1481,9 @@ public class DNSProxyActivity extends Activity
 
 		prepareTransition((ViewGroup) findViewById(R.id.linearLayout4));
 
+		if (dest !=null && !dest.isChecked())
+			hideKeyboard(this);
+
 		((TextView) findViewById(R.id.backupLog)).setText("");
 		if (advancedConfigCheck.isChecked()) {
 			setVisibilityForAdvCfg(View.GONE);
@@ -1575,6 +1612,7 @@ public class DNSProxyActivity extends Activity
 			findViewById(R.id.advSettingsScroll).setVisibility(View.GONE);
 			appWhiteListCheck.setChecked(false);
 			appSelector.clear();
+			findViewById(R.id.appWhiteListScroll).setVisibility(View.GONE);
 			findViewById(R.id.backupRestoreView).setVisibility(View.GONE);
 			editFilterLoadCheck.setChecked(false);
 			backupRestoreCheck.setChecked(false);
@@ -1591,6 +1629,16 @@ public class DNSProxyActivity extends Activity
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 			TransitionManager.beginDelayedTransition(v);
 		}
+	}
+
+	public static void hideKeyboard(Activity activity) {
+		InputMethodManager imm = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+		View view = activity.getCurrentFocus();
+		if (view == null) {
+			view = new View(activity);
+		}
+		imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+
 	}
 
 	protected synchronized void handleExitApp() {
@@ -1613,6 +1661,7 @@ public class DNSProxyActivity extends Activity
 				return;
 
 			startup();
+			Logger.getLogger().message("personalDNSfilter restarted!");
 			loadAndApplyConfig(false);
 		}
 	    else {
@@ -1665,7 +1714,9 @@ public class DNSProxyActivity extends Activity
 	}
 
 	private void startSvc() {
-		startService(new Intent(this, DNSFilterService.class));
+		if (Build.VERSION.SDK_INT >= 26) {
+			startForegroundService(new Intent(this, DNSFilterService.class));
+		} else startService(new Intent(this, DNSFilterService.class));
 	}
 
 	@Override
