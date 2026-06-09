@@ -66,7 +66,7 @@ import util.conpool.TLSSocketFactory;
 
 public class DNSFilterManager extends ConfigurationAccess  {
 
-	public static final String VERSION = "1505901-dev7";
+	public static final String VERSION = "1506007";
 	private static DNSFilterManager INSTANCE = new DNSFilterManager();	
 	static public boolean debug;
 	private static String filterReloadURL;
@@ -870,7 +870,7 @@ public class DNSFilterManager extends ConfigurationAccess  {
 			return new int[]{wildcard, -1};
 
 		if (buf.length == 0)
-			throw new IOException("Buffer overflow!");
+			throw new IOException("Filterfile is not compatible with personalDNSfilter!");
 
 		if (r == 42) //wildcard
 			wildcard =1;
@@ -901,7 +901,7 @@ public class DNSFilterManager extends ConfigurationAccess  {
 
 			if (r != -1) {
 				if (pos == buf.length)
-					throw new IOException("Buffer overflow!");
+					throw new IOException("Filterfile is not compatible with personalDNSfilter!");
 
 				if ( r < 32 && r != 9 && r != 13 && r!=10)
 					throw new IOException ("Non printable character: "+r);

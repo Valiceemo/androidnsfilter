@@ -688,19 +688,14 @@ public class DNSFilterService extends VpnService  {
 		AndroidEnvironment.initEnvironment(this);
 
 		SERVICE = intent;
-
-		if (is_running) {
-			Logger.getLogger().logLine("Ignoring duplicate start after update!");
-			return START_STICKY;
-		}
-
 		INSTANCE = this;
 
 		try {
-			Intent notificationIntent = new Intent(this, DNSProxyActivity.class);
-			pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
-			
 			if (android.os.Build.VERSION.SDK_INT >= 16) {
+
+				// Initialize pendingIntent for notification tap
+				Intent notificationIntent = new Intent(this, DNSProxyActivity.class);
+				pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
 
 				if (android.os.Build.VERSION.SDK_INT >= 26)
 					notibuilder = new Notification.Builder(this, getChannel());
@@ -719,13 +714,7 @@ public class DNSFilterService extends VpnService  {
 						.addAction(0, getResources().getString(R.string.switch_pause_resume), pause_resume_Intent)
 						.setCategory(Notification.CATEGORY_SERVICE);
 
-				Notification noti = notibuilder.setOngoing(true).build();
-				noti.flags |= Notification.FLAG_NO_CLEAR | Notification.FLAG_ONGOING_EVENT;
-
-				if (Build.VERSION.SDK_INT >= 29)
-					startForeground(1, noti, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-				else
-					startForeground(1, noti);
+				startForeground();
 
 				if (startDNSFilter())
 					updateNotification();
@@ -744,11 +733,32 @@ public class DNSFilterService extends VpnService  {
 		return START_STICKY;
 	}
 
+	private void startForeground() {
+		Notification noti = notibuilder.setOngoing(true).build();
+		noti.flags |= Notification.FLAG_NO_CLEAR | Notification.FLAG_ONGOING_EVENT;
+
+		if (Build.VERSION.SDK_INT >= 29) {
+			try {
+				startForeground(1, noti, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+			} catch (SecurityException e) {
+				Logger.getLogger().logLine("Security Exception during service start with FOREGROUND_SERVICE_TYPE_SPECIAL_USE!");
+				Logger.getLogger().logLine("Falling back to FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED!");
+				startForeground(1, noti, ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED);
+			}
+		}
+		else
+			startForeground(1, noti);
+	}
+
 	private boolean startDNSFilter() {
+		if (is_running) {
+			Logger.getLogger().logLine("Ignoring duplicate start after update!");
+		}
 		if (DNSFILTER != null) {
 			Logger.getLogger().logLine("DNS filter already running!");
 			return true;
 		}
+		AndroidEnvironment.initEnvironment(this);
 		try {
 			DNSFILTER = DNSFilterManager.getInstance();
 			DNSFILTER.init();
@@ -762,6 +772,7 @@ public class DNSFilterService extends VpnService  {
 			// Initialize and start VPN Mode if not disabled
 
 			if (!dnsProxyMode || vpnInAdditionToProxyMode) {
+				//start VPN
 				ParcelFileDescriptor vpnInterface = initVPN(true);
 
 				if (vpnInterface != null) {
@@ -859,15 +870,7 @@ public class DNSFilterService extends VpnService  {
 			else
 				notibuilder.setSmallIcon(R.drawable.icon_disabled);
 
-			Notification noti = notibuilder.setOngoing(true).build();
-			noti.flags |= Notification.FLAG_NO_CLEAR | Notification.FLAG_ONGOING_EVENT;
-
-			//((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).cancel(1);
-			//((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(1,notibuilder.build());
-			if (Build.VERSION.SDK_INT >= 29)
-				startForeground(1, noti, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-			else
-				startForeground(1, noti);
+			startForeground();
 
 			// Update the quick settings tile
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
@@ -876,7 +879,6 @@ public class DNSFilterService extends VpnService  {
 		} catch (Exception e){
 			Logger.getLogger().logException(e);
 		}
-
 	}
 
 	private String getChannel() {
@@ -988,6 +990,12 @@ public class DNSFilterService extends VpnService  {
 		Logger.getLogger().logLine("destroyed");
 		shutdown();
 		super.onDestroy();
+	}
+
+	@Override
+	public void onRevoke() {
+		Logger.getLogger().logLine("VPN revoked by system!");
+		super.onRevoke();
 	}
 
 	private boolean shutdown() {
