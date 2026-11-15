@@ -1,3 +1,12 @@
+[![Repository](https://img.shields.io/badge/Repository-androidnsfilter-181717?style=for-the-badge&logo=github)](https://github.com/Valiceemo/androidnsfilter)
+![Stars](https://img.shields.io/github/stars/Valiceemo/androidnsfilter?style=for-the-badge&logo=github)
+![Forks](https://img.shields.io/github/forks/Valiceemo/androidnsfilter?style=for-the-badge&logo=github)
+![Downloads](https://img.shields.io/github/downloads/Valiceemo/androidnsfilter/total?style=for-the-badge&logo=github)
+![License](https://img.shields.io/github/license/Valiceemo/androidnsfilter?style=for-the-badge)
+![Last Commit](https://img.shields.io/github/last-commit/Valiceemo/androidnsfilter?style=for-the-badge&logo=github)
+![Languages](https://img.shields.io/github/languages/count/Valiceemo/androidnsfilter?style=for-the-badge)
+
+
 # personalDNSfilter (Tasker Automation Fork)
 
 > **⚠️ ATTENTION:** This is a custom fork of the fantastic [personalDNSfilter](https://github.com/IngoZenz/personaldnsfilter) created by **IngoZenz**. All credit for the core DNS engine, VPN filtering architecture, and main application belongs entirely to the original developer. Please visit the official repository to support the original project!
