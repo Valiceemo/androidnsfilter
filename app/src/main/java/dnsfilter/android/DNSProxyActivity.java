@@ -46,6 +46,7 @@ import android.os.StrictMode;
 import android.text.Editable;
 import android.text.Html;
 import android.text.InputType;
+import android.text.Selection;
 import android.text.Spannable;
 import android.text.Spanned;
 import android.text.TextUtils;
@@ -302,14 +303,14 @@ public class DNSProxyActivity extends Activity
 				int logSize = logOutView.getText().length();
 
 				if (logSize >= 10000) {
-					Spannable logStr = logOutView.getText();
+					Editable logStr = logOutView.getText();
 					int start = logSize / 2;
-
-					while (logStr.charAt(start) != '\n' && start < logStr.length()-1)
+					while (start < logStr.length() - 1 && logStr.charAt(start) != '\n')
 						start++;
-
-					logOutView.setText(logStr.subSequence(start, logStr.length()));
-
+					if (start < logStr.length() - 1) {
+						Selection.removeSelection(logStr);
+						logStr.delete(0, start + 1);
+					}
 				}
 
 				if (!advancedConfigCheck.isChecked()) { //avoid focus lost when editing advanced settings
@@ -665,18 +666,27 @@ public class DNSProxyActivity extends Activity
 				Logger.setLogger(new GroupedLogger(new LoggerInterface[]{myLogger}));
 			}
 
-			String forcedDisplayMode = ConfigurationAccess.getLocal().getConfigUtil().getConfigValue("forceAndroidDisplayMode", "none").trim();
-			if (forcedDisplayMode.equalsIgnoreCase("portrait"))
-				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-			else if (forcedDisplayMode.equalsIgnoreCase("landscape"))
-				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-			else if(getResources().getBoolean(R.bool.portrait_only)){
-				setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+			String forcedDisplayMode = null;
+			try {
+				forcedDisplayMode = ConfigurationAccess.getLocal().getConfigUtil().getConfigValue("forceAndroidDisplayMode", "none").trim();
+				if (forcedDisplayMode.equalsIgnoreCase("portrait"))
+					setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+				else if (forcedDisplayMode.equalsIgnoreCase("landscape"))
+					setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+				else if(getResources().getBoolean(R.bool.portrait_only))
+					setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
+			} catch (IOException e) {
+				Logger.getLogger().logException(e);
 			}
 
-			debug = Boolean.parseBoolean(ConfigurationAccess.getLocal().getConfigUtil().getConfigValue("debug", "false"));
-			if (debug)
-				Runtime.getRuntime().exec("logcat -d -f" + ExecutionEnvironment.getEnvironment().getWorkDir()+"/Logcat_file.txt");
+			try {
+				debug = Boolean.parseBoolean(ConfigurationAccess.getLocal().getConfigUtil().getConfigValue("debug", "false"));
+				if (debug)
+					Runtime.getRuntime().exec("logcat -d -f" + ExecutionEnvironment.getEnvironment().getWorkDir() + "/Logcat_file.txt");
+			} catch (Exception e) {
+				Logger.getLogger().logException(e);
+			}
 
 			if (appStart) {
 				if (Build.VERSION.SDK_INT >= 33) {
@@ -687,9 +697,9 @@ public class DNSProxyActivity extends Activity
 				initAppAndStartup();
 			}
 
-		} catch (Exception e){
+		} catch (RuntimeException e) {
 			dump(e);
-			throw new RuntimeException(e);
+			throw e;
 		}
 	}
 
@@ -1418,8 +1428,10 @@ public class DNSProxyActivity extends Activity
 				final int port;
 				try {
 					port = Integer.parseInt(ConfigurationAccess.getLocal().getConfig().getProperty("client_remote_ctrl_port", "3333"));
+					if (port <= 0 || port > 65535)
+						throw new IOException("Invalid port range: "+port);
 				} catch (Exception e) {
-					throw new IOException("Invalid connect_remote_ctrl_port");
+					throw new IOException("Invalid connect_remote_ctrl_port",e);
 				}
 
 				Runnable asyncConnect = new Runnable() {

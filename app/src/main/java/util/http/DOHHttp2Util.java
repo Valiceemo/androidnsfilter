@@ -355,6 +355,7 @@ public class DOHHttp2Util {
 
     public static SSLSocket openHttp2Socket(InetSocketAddress sadr, int timeout, Proxy proxy) throws IOException {
         Socket socket = null;
+        SSLSocket sslsocket = null;
         try {
             SSLContext sslContext = SSLContext.getDefault();
             if (proxy == Proxy.NO_PROXY) {
@@ -366,8 +367,10 @@ public class DOHHttp2Util {
                     throw new IOException("Only " + HttpProxy.class.getName() + " supported for creating connection over tunnel!");
                 socket = ((HttpProxy) proxy).openTunnel(sadr, timeout, true);
             }
+            
+            socket.setSoTimeout(timeout);
 
-            SSLSocket sslsocket = (SSLSocket) sslContext.getSocketFactory()
+            sslsocket = (SSLSocket) sslContext.getSocketFactory()
                     .createSocket(socket, sadr.getHostName(), sadr.getPort(), true);
             SSLParameters params = sslsocket.getSSLParameters();
             params.setApplicationProtocols(new String[]{"h2"});
@@ -417,25 +420,28 @@ public class DOHHttp2Util {
                     acked = true;
                 }
             }
-            return sslsocket;
-        } catch (IOException eio) {
-            if (socket != null) {
-                try {
-                    socket.close();
-                } catch (IOException e2) {
-                    // ignore
-                }
+            if (!acked) {
+                throw new IOException("Did not receive SETTINGS ACK from server within expected frames");
             }
+            return sslsocket;
+
+        } catch (IOException eio) {
+            cleanupOnError(socket, sslsocket);
             throw eio;
         } catch (Exception e) {
-            if (socket != null) {
-                try {
-                    socket.close();
-                } catch (IOException e2) {
-                    // ignore
-                }
-            }
+            cleanupOnError(socket, sslsocket);
             throw new IOException(e.getMessage(), e);
+        }
+    }
+
+    private static void cleanupOnError(Socket socket, SSLSocket sslsocket) {
+        try {
+            if (sslsocket != null)
+                sslsocket.close();
+            else if (socket!= null)
+                socket.close();
+        } catch (IOException e2) {
+            // ignore
         }
     }
 
@@ -455,29 +461,35 @@ public class DOHHttp2Util {
             return false;
         }
 
-        // Extract DNS header fields
         int flags   = ((resp[2] & 0xFF) << 8) | (resp[3] & 0xFF);
         int qdcount = ((resp[4] & 0xFF) << 8) | (resp[5] & 0xFF);
         int ancount = ((resp[6] & 0xFF) << 8) | (resp[7] & 0xFF);
+        int rcode   = flags & 0x0F;
 
-        // QR bit must be 1 (response)
-        boolean qr = (flags & 0x8000) != 0;
-        if (!qr) return false;
+        // QR bit must be 1
+        if ((flags & 0x8000) == 0) {
+            return false;
+        }
 
-        // Opcode must be 0 (standard query)
+        // Only standard queries
         int opcode = (flags >> 11) & 0xF;
-        if (opcode != 0) return false;
+        if (opcode != 0) {
+            return false;
+        }
 
-        // QDCOUNT must be >= 1 (DoH always echoes the question)
-        if (qdcount < 1 || qdcount > 5) return false;
+        // Successful responses should contain the question.
+        // Error responses may contain only the header.
+        if (rcode == 0 && (qdcount < 1 || qdcount > 5)) {
+            return false;
+        }
 
-        // ANCOUNT must be reasonable (0–20 is typical)
-        if (ancount < 0 || ancount > 50) return false;
+        // ANCOUNT sanity check
+        if (ancount > 50) {
+            return false;
+        }
 
-        // If we reach here, the header looks sane
         return true;
     }
-
 
     private static int MAX_RETRY = 4;
 
@@ -676,6 +688,9 @@ public class DOHHttp2Util {
                 //Logger.getLogger().logLine("Already retried!!!");
                 throw e;
             }
+        } catch (RuntimeException e) {
+            if (con != null) con.release(false);
+            throw new IOException("DoH: unexpected exception processing DOH2 DNS query", e);
         }
     }
 
@@ -698,11 +713,12 @@ public class DOHHttp2Util {
         // String host = "dns.mullvad.net";
         // String host = "dns.cloudflare.com";
         String host = "dns.quad9.net";
+        // String host = "dns.opendns.com";
 
         InetAddress iadr = InetAddress.getByName(host);
         InetSocketAddress sadr = new InetSocketAddress(iadr, port);
 
-        for (int i = 0; i < 300; i++) {
+        for (int i = 0; i < 1; i++) {
             try {
                 byte[] dnsQuery = buildDnsQuery("www.zenz-solutions.de", 1);
                 System.out.println("Results for www.zenz-solutions.de:");

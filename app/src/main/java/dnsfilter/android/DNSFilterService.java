@@ -39,6 +39,7 @@ import android.net.NetworkInfo;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
+import android.os.StrictMode;
 
 import java.io.DataOutputStream;
 import java.io.File;
@@ -488,10 +489,10 @@ public class DNSFilterService extends VpnService  {
 
 	static String[] lastDNSServers = new String[0];
 
-	public static void possibleNetworkChange(boolean force) throws IOException {
+	public static void possibleNetworkChange(boolean force, boolean updateIPRules) throws IOException {
 		if (ExecutionEnvironment.getEnvironment().hasNetwork()) {
 
-			if (rootMode)
+			if (rootMode & updateIPRules)
 				dnsReqForwarder.updateForward();
 
 			String[] dnsServers = getDNSServers();
@@ -711,7 +712,7 @@ public class DNSFilterService extends VpnService  {
 						.setSmallIcon(R.drawable.icon)
 						.setContentIntent(pendingIntent)
 						//.setContentIntent(pause_resume_Intent)
-						.addAction(0, getResources().getString(R.string.switch_pause_resume), pause_resume_Intent)
+						.addAction(R.drawable.icon_pause_resume, getResources().getString(R.string.switch_pause_resume), pause_resume_Intent)
 						.setCategory(Notification.CATEGORY_SERVICE);
 
 				startForeground();
@@ -738,17 +739,53 @@ public class DNSFilterService extends VpnService  {
 		noti.flags |= Notification.FLAG_NO_CLEAR | Notification.FLAG_ONGOING_EVENT;
 
 		if (Build.VERSION.SDK_INT >= 29) {
-			try {
-				startForeground(1, noti, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-			} catch (SecurityException e) {
-				Logger.getLogger().logLine("Security Exception during service start with FOREGROUND_SERVICE_TYPE_SPECIAL_USE!");
-				Logger.getLogger().logLine("Falling back to FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED!");
-				startForeground(1, noti, ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED);
+
+			String manufacturer = Build.MANUFACTURER.toLowerCase();
+			boolean isSamsung = manufacturer.contains("samsung");
+
+			// Sequence of types depending on vendor
+			int primaryType;
+			String primaryTypeStr;
+			int fallbackType;
+			String fallbackTypeStr;
+
+			if (isSamsung) {
+				// Samsung: SYSTEM_EXEMPTED first, SPECIAL_USE as fallback
+				primaryType  = ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED;
+				primaryTypeStr = "FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED";
+				fallbackType = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
+				fallbackTypeStr = "FOREGROUND_SERVICE_TYPE_SPECIAL_USE";
+			} else {
+				// Others: SPECIAL_USE first, SYSTEM_EXEMPTED as fallback
+				primaryType  = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
+				primaryTypeStr = "FOREGROUND_SERVICE_TYPE_SPECIAL_USE";
+				fallbackType = ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED;
+				fallbackTypeStr = "FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED";
 			}
-		}
-		else
+
+			try {
+				startForeground(1, noti, primaryType);
+				Logger.getLogger().logLine("Started foreground service with type: " + primaryTypeStr + " (manufacturer=" + manufacturer + ")");
+				return;
+			} catch (SecurityException e) {
+				Logger.getLogger().logLine("FGS primary type not allowed: " + primaryTypeStr + " → trying fallback type: " + fallbackTypeStr);
+			}
+
+			try {
+				startForeground(1, noti, fallbackType);
+				Logger.getLogger().logLine("Started foreground service with fallback type: " + fallbackTypeStr + " (manufacturer=" + manufacturer + ")");
+				return;
+			} catch (SecurityException e) {
+				Logger.getLogger().logLine("FGS fallback type also not allowed: " + fallbackTypeStr + " → cannot start foreground service with valid type on this device!");
+				Logger.getLogger().logException(e);
+			}
+
+		} else {
+			// Legacy Android < 29
 			startForeground(1, noti);
+		}
 	}
+
 
 	private boolean startDNSFilter() {
 		if (is_running) {
@@ -759,6 +796,7 @@ public class DNSFilterService extends VpnService  {
 			return true;
 		}
 		AndroidEnvironment.initEnvironment(this);
+		StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder().build());
 		try {
 			DNSFILTER = DNSFilterManager.getInstance();
 			DNSFILTER.init();
@@ -768,6 +806,8 @@ public class DNSFilterService extends VpnService  {
 			dnsProxyOnlyLocal = Boolean.parseBoolean(DNSFILTER.getConfig().getProperty("dnsProxyOnlyLocalRequests", "true"));
 			rootMode = Boolean.parseBoolean(DNSFILTER.getConfig().getProperty("rootModeOnAndroid", "false"));
 			vpnInAdditionToProxyMode = Boolean.parseBoolean(DNSFILTER.getConfig().getProperty("vpnInAdditionToProxyMode", "false"));
+
+			possibleNetworkChange(true, false); // in order to trigger dns detection
 
 			// Initialize and start VPN Mode if not disabled
 
@@ -799,8 +839,6 @@ public class DNSFilterService extends VpnService  {
 				registerReceiver(NotificationReceiver.getInstance(), new IntentFilter("pause_resume"));
 			else
 				registerReceiver(NotificationReceiver.getInstance(), new IntentFilter("pause_resume"),RECEIVER_EXPORTED);
-
-			possibleNetworkChange(true); // in order to trigger dns detection
 
 			//start DNS Proxy Mode if configured
 			if (dnsProxyMode) {
@@ -1105,7 +1143,7 @@ public class DNSFilterService extends VpnService  {
 			restartVPN(true);
 		}
 		updateNotification();
-		possibleNetworkChange(true); // trigger dns detection
+		possibleNetworkChange(true, true); // trigger dns detection
 	}
 
 	public static void onReload() throws IOException {
